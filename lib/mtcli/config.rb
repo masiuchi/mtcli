@@ -1,6 +1,6 @@
+require 'mt/data_api/client/endpoint_manager'
 require 'yaml'
 
-require 'mtcli/data_api'
 require 'mtcli/util'
 
 module MTCLI
@@ -16,7 +16,7 @@ module MTCLI
 
     def initialize(file_path, hash={})
       @file_path = file_path
-      @version   = DataAPI::DEFAULT_VERSION
+      @version   = MT::DataAPI::Client::EndpointManager::DEFAULT_API_VERSION
       set(hash)
     end
 
