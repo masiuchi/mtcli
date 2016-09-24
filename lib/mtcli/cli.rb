@@ -6,11 +6,11 @@ require 'yaml'
 require 'mtcli/config'
 
 module MTCLI
+  # CLI class.
   class CLI < Thor
-
     desc 'list', 'Show all MT settings'
     def list
-      configs = Config.get_all
+      configs = Config.all
       if configs.empty?
         puts 'No MT settings are registered.'
         return
@@ -33,20 +33,16 @@ module MTCLI
     end
 
     desc 'current [NAME]', 'Show/Set current MT setting'
-    def current(name=nil)
+    def current(name = nil)
       if name.nil?
-        config = Config.get_current
-        unless config
+        unless Config.current
           puts 'Current setting does not exist.'
           return
         end
 
-        puts config
+        puts Config.current
       else
-        unless Config.set_current(name)
-          puts "Cannot register #{name}."
-          return
-        end
+        Config.current = name
 
         puts "Current setting is #{name}."
       end
@@ -54,15 +50,13 @@ module MTCLI
 
     desc 'add <NAME> <BASE_URL>', 'Add MT setting'
     def add(name, base_url)
-      unless Config.create(name, {base_url: base_url})
-        puts "Cannot add #{name}."
-      end
+      puts "Cannot add #{name}." unless Config.create(name, base_url: base_url)
 
       puts "Added #{name}."
     end
 
     desc 'update <NAME> [arguments]', 'Update MT setting'
-    def update(name)
+    def update(_name)
       puts 'update'
     end
 
@@ -96,20 +90,16 @@ module MTCLI
 
     desc 'login <USERNAME> <PASSWORD>', 'Login to current MT'
     def login(username, password)
-      config = Config.get_current
+      config = Config.current
       unless config
         puts 'No current setting.'
         return
       end
 
-      client = MT::DataAPI::Client.new({
-        base_url: config.base_url,
-        client_id: 'mtcli',
-      })
-      client.call('authenticate', {
-        username: username,
-        password: password,
-      })
+      client = MT::DataAPI::Client.new(base_url: config.base_url,
+                                       client_id: 'mtcli')
+      client.call('authenticate', username: username,
+                                  password: password)
 
       unless client.access_token
         puts 'Login failed.'
@@ -123,21 +113,19 @@ module MTCLI
 
     desc 'logout', 'Logout from current MT'
     def logout
-      config = Config.get_current
+      config = Config.current
       unless config
         puts 'No current setting.'
         return
       end
-      unless config.is_logged_in?
+      unless config.logged_in?
         puts 'Not logged in.'
         return
       end
 
-      client = MT::DataAPI::Client.new({
-        base_url: config.base_url,
-        client_id: 'mtcli',
-        access_token: config.access_token,
-      })
+      client = MT::DataAPI::Client.new(base_url: config.base_url,
+                                       client_id: 'mtcli',
+                                       access_token: config.access_token)
       res = client.call('revoke_authentication')
       return unless res['status'] == 'success'
 
@@ -146,8 +134,12 @@ module MTCLI
       puts 'Logged out.'
     end
 
-    def method_missing(method, *args)
-      config = Config.get_current
+    def respond_to_missing?(method)
+      super
+    end
+
+    def method_missing(method, *_args)
+      config = Config.current
       unless config
         puts 'No current setting.'
         return
@@ -155,13 +147,13 @@ module MTCLI
 
       opts = {
         base_url: config.base_url,
-        client_id: 'mtcli',
+        client_id: 'mtcli'
       }
       opts[:access_token] = config.access_token if config.access_token
       client = MT::DataAPI::Client.new(opts)
 
       begin
-        res = client.call(method, get_options)
+        res = client.call(method, options)
         puts res.to_json
         if opts['access_token'] && res['error'] && res['error']['code'] == 401
           config.access_token = nil
@@ -169,17 +161,17 @@ module MTCLI
           puts 'Removed invalid access token.'
         end
       rescue
-        puts $!
+        puts $ERROR_INFO
       end
     end
 
     private
 
-    def get_options
+    def options
       key = nil
-      ARGV[1..-1].reduce({}) do |opts, arg|
-        if arg.match(/^--/)
-          if arg.match(/=/)
+      ARGV[1..-1].each_with_object({}) do |arg, opts|
+        if arg =~ /^--/
+          if arg =~ /=/
             # key and value
             key, value = arg.sub(/^--/, '').split(/=/)
             opts[key] = value
@@ -188,19 +180,13 @@ module MTCLI
             # key
             key = arg.sub(/^--/, '')
           end
-        else
+        elsif key
           # value
-          if key
-            opts[key] = arg
-            key = nil
-          else
-            # ignore
-          end
+          opts[key] = arg
+          key = nil
         end
         opts
       end
     end
-
   end
 end
-
