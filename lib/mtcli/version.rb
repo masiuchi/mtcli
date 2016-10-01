@@ -1,3 +1,4 @@
+# Version of MTCLI.
 module MTCLI
-  VERSION = '0.0.1'
+  VERSION = '0.0.1'.freeze
 end
