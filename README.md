@@ -2,15 +2,6 @@
 
 A command line client for Movale Type Data API.
 
-## Installation
-
-```bash
-$ git clone https://github.com/masiuchi/mtcli
-$ cd mtcli
-$ gem build mtcli.gemspec
-$ gem install --local mtcli-0.0.1.gem
-```
-
 ## Usage
 
 ```bash
